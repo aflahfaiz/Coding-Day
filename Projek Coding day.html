@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>PayVault - Financial Experience</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        liquid: {
+                            glass: 'rgba(255, 255, 255, 0.07)',
+                            glassHover: 'rgba(255, 255, 255, 0.12)',
+                            border: 'rgba(255, 255, 255, 0.18)',
+                            borderGlow: 'rgba(255, 255, 255, 0.35)',
+                            bgDark: '#070913',
+                            blue: '#00d2ff',
+                            purple: '#9d4edd',
+                            magenta: '#ff007f',
+                            green: '#00f5d4',
+                            amber: '#ffb703',
+                            red: '#ff0055'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        html {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            overscroll-behavior: none; /* Kunci gesture refresh di browser */
+        }
+        
+        body {
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            overscroll-behavior-x: none;
+            overscroll-behavior-y: none; /* Mencegah memuat ulang halaman */
+            background-color: #05070f;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .app-main-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Area Scroll Native Smooth */
+        .app-scroll-container {
+            flex: 1;
+            overflow-y: auto !important; /* Menggunakan auto/scroll agar engine native Android aktif */
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch !important; /* Smooth touch di Android WebView / iOS */
+            touch-action: pan-y !important; /* Hanya izinkan gesture scroll vertikal */
+            overscroll-behavior-y: contain !important; /* Isolasi efek bounce di dalam kontainer */
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(28px) saturate(210%);
+            -webkit-backdrop-filter: blur(28px) saturate(210%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.37), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
+        }
+
+        .glass-panel-interactive {
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-panel-interactive:active {
+            transform: scale(0.97);
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-dock {
+            background: rgba(18, 20, 38, 0.85);
+            backdrop-filter: blur(35px) saturate(220%);
+            -webkit-backdrop-filter: blur(35px) saturate(220%);
+            border-top: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            pointer-events: none;
+            animation: orbFloat 14s ease-in-out infinite alternate;
+        }
+
+        @keyframes orbFloat {
+            0% { transform: translate(0px, 0px) scale(1); }
+            50% { transform: translate(30px, -40px) scale(1.15); }
+            100% { transform: translate(-20px, 20px) scale(0.95); }
+        }
+
+        .text-glow-cyan { text-shadow: 0 0 15px rgba(0, 210, 255, 0.6); }
+        .text-glow-green { text-shadow: 0 0 15px rgba(0, 245, 212, 0.6); }
+        .text-glow-magenta { text-shadow: 0 0 15px rgba(255, 0, 127, 0.6); }
+
+        .liquid-progress-fill {
+            background: linear-gradient(90deg, #00d2ff 0%, #00f5d4 50%, #9d4edd 100%);
+            box-shadow: 0 0 12px rgba(0, 210, 255, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-[#05070f] text-slate-100 min-h-screen select-none">
+
+    <div class="app-main-wrapper">
+        <!-- Ambient Dynamic Glow Orbs -->
+        <div class="orb w-72 h-72 bg-liquid-purple -top-10 -left-20"></div>
+        <div class="orb w-80 h-80 bg-liquid-blue top-1/3 -right-24" style="animation-delay: -5s;"></div>
+        <div class="orb w-72 h-72 bg-liquid-magenta bottom-10 -left-16" style="animation-delay: -9s;"></div>
+
+        <!-- Header Bar Penuh -->
+        <div class="px-5 pt-3 pb-2 flex justify-between items-center z-40 bg-[#05070f]/80 backdrop-blur-md border-b border-white/10 shrink-0">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="shield-check" class="w-5 h-5 text-liquid-green"></i>
+                <span class="font-extrabold text-sm tracking-wide text-white">PayVault</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span id="current-time" class="text-xs font-mono font-semibold text-slate-300">09:41</span>
+                <button onclick="confirmResetData()" class="px-2.5 py-1 rounded-full glass-panel text-[11px] text-slate-300 hover:text-liquid-red transition flex items-center space-x-1">
+                    <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+                    <span>Reset</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Area Konten Utama Scrollable -->
+        <div id="app-content" class="app-scroll-container px-4 pt-3 pb-24 space-y-5 no-scrollbar max-w-2xl mx-auto w-full z-20">
+            
+            <!-- VIEW 1: DASHBOARD / BERANDA -->
+            <div id="view-dashboard" class="app-view space-y-5">
+                <!-- User Profile Bar -->
+                <div class="flex justify-between items-center pt-1">
+                    <div onclick="openEditProfileModal()" class="flex items-center space-x-3 cursor-pointer active:scale-95 transition-transform duration-150" title="Klik untuk edit profil">
+                        <div class="relative p-0.5 rounded-full bg-gradient-to-r from-liquid-blue via-liquid-purple to-liquid-magenta">
+                            <img id="user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" class="w-10 h-10 rounded-full object-cover border border-black" alt="Avatar">
+                        </div>
+                        <div>
+                            <p id="user-title" class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Liquid Wallet</p>
+                            <h2 class="text-base font-bold text-white tracking-tight flex items-center space-x-1">
+                                <span id="user-name">Alex Morgan</span>
+                                <i data-lucide="badge-check" class="w-4 h-4 text-liquid-blue inline"></i>
+                            </h2>
+                        </div>
+                    </div>
+                    <button onclick="openTransactionModal()" class="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-white hover:border-liquid-blue active:scale-90 transition shadow-lg">
+                        <i data-lucide="plus" class="w-5 h-5 text-liquid-blue"></i>
+                    </button>
+                </div>
+
+                <!-- Liquid Balance Card -->
+                <div class="p-5 rounded-[32px] glass-panel relative overflow-hidden space-y-4">
+                    <div class="flex justify-between items-start text-slate-400 text-xs">
+                        <span class="font-medium tracking-wide">Total Saldo Bersih</span>
+                        <span class="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-liquid-green text-[10px] font-bold flex items-center space-x-1">
+                            <i data-lucide="trending-up" class="w-3 h-3"></i>
+                            <span>+12.8%</span>
+                        </span>
+                    </div>
+                    <div>
+                        <h1 id="dash-total-balance" class="text-3xl font-black tracking-tight text-white text-glow-cyan">Rp 0</h1>
+                        <p class="text-[11px] text-slate-400 mt-1">Gabungan Dompet & Rekening</p>
+                    </div>
+
+                    <!-- Income vs Expense Quick Glass Box -->
+                    <div class="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                        <div class="p-2.5 rounded-2xl bg-white/5 border border-white/10 flex items-center space-x-2.5">
+                            <div class="w-8 h-8 rounded-xl bg-liquid-green/20 border border-liquid-green/40 text-liquid-green flex items-center justify-center">
+                                <i data-lucide="arrow-down-left" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-slate-400">Pemasukan</p>
+                                <p id="dash-total-income" class="text-xs font-bold text-slate-100">Rp 0</p>
+                            </div>
+                        </div>
+                        <div class="p-2.5 rounded-2xl bg-white/5 border border-white/10 flex items-center space-x-2.5">
+                            <div class="w-8 h-8 rounded-xl bg-liquid-magenta/20 border border-liquid-magenta/40 text-liquid-magenta flex items-center justify-center">
+                                <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-slate-400">Pengeluaran</p>
+                                <p id="dash-total-expense" class="text-xs font-bold text-slate-100">Rp 0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Glass Floating Buttons -->
+                <div class="grid grid-cols-4 gap-2.5">
+                    <button onclick="openTransactionModal('income')" class="flex flex-col items-center justify-center p-3 rounded-2xl glass-panel glass-panel-interactive">
+                        <div class="w-9 h-9 rounded-2xl bg-liquid-green/15 border border-liquid-green/30 text-liquid-green flex items-center justify-center mb-1.5 shadow-lg">
+                            <i data-lucide="arrow-down-left" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-[10px] font-semibold text-slate-200">Masuk</span>
+                    </button>
+                    <button onclick="openTransactionModal('expense')" class="flex flex-col items-center justify-center p-3 rounded-2xl glass-panel glass-panel-interactive">
+                        <div class="w-9 h-9 rounded-2xl bg-liquid-magenta/15 border border-liquid-magenta/30 text-liquid-magenta flex items-center justify-center mb-1.5 shadow-lg">
+                            <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-[10px] font-semibold text-slate-200">Keluar</span>
+                    </button>
+                    <button onclick="openTransferModal()" class="flex flex-col items-center justify-center p-3 rounded-2xl glass-panel glass-panel-interactive">
+                        <div class="w-9 h-9 rounded-2xl bg-liquid-blue/15 border border-liquid-blue/30 text-liquid-blue flex items-center justify-center mb-1.5 shadow-lg">
+                            <i data-lucide="repeat" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-[10px] font-semibold text-slate-200">Transfer</span>
+                    </button>
+                    <button onclick="openModal('add-wallet')" class="flex flex-col items-center justify-center p-3 rounded-2xl glass-panel glass-panel-interactive">
+                        <div class="w-9 h-9 rounded-2xl bg-liquid-purple/15 border border-liquid-purple/30 text-liquid-purple flex items-center justify-center mb-1.5 shadow-lg">
+                            <i data-lucide="credit-card" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-[10px] font-semibold text-slate-200">+ Wallet</span>
+                    </button>
+                </div>
+
+                <!-- Wallets Horizontal Carousel -->
+                <div class="space-y-2.5">
+                    <div class="flex justify-between items-center px-1">
+                        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Dompet & Kartu</h3>
+                        <button onclick="switchTab('wallets')" class="text-xs text-liquid-blue font-semibold hover:underline">Kelola</button>
+                    </div>
+                    <div id="dash-wallets-scroll" class="flex space-x-3 overflow-x-auto no-scrollbar py-1">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Upcoming Glass Bills Widget -->
+                <div class="space-y-2.5">
+                    <div class="flex justify-between items-center px-1">
+                        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Tagihan & Langganan</h3>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full glass-panel text-slate-300 font-mono">Auto-Pay</span>
+                    </div>
+                    <div class="space-y-2" id="bills-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Recent Transactions Preview -->
+                <div class="space-y-2.5">
+                    <div class="flex justify-between items-center px-1">
+                        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Transaksi Terakhir</h3>
+                        <button onclick="switchTab('transactions')" class="text-xs text-liquid-blue font-semibold hover:underline">Lihat Semua</button>
+                    </div>
+                    <div class="space-y-2" id="dash-tx-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: MULTI WALLET & SAVINGS -->
+            <div id="view-wallets" class="app-view hidden space-y-5">
+                <div class="flex justify-between items-center pt-2">
+                    <div>
+                        <h2 class="text-xl font-bold tracking-tight text-white">Dompet & Simpanan</h2>
+                        <p class="text-xs text-slate-400">Atur alokasi dana dan akun simpanan</p>
+                    </div>
+                    <button onclick="openModal('add-wallet')" class="px-3.5 py-1.5 rounded-2xl glass-panel border-liquid-blue/40 text-liquid-blue text-xs font-bold flex items-center space-x-1 shadow-lg">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                        <span>Tambah Wallet</span>
+                    </button>
+                </div>
+
+                <div class="space-y-3" id="wallets-full-list">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <div class="pt-4 border-t border-white/10 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-200">Target Menabung (Impian)</h3>
+                            <p class="text-[10px] text-slate-400">Progres pencapaian finansial Anda</p>
+                        </div>
+                        <button onclick="openModal('add-goal')" class="p-2 rounded-xl glass-panel text-liquid-purple hover:border-liquid-purple">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-3" id="goals-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 3: TRANSACTIONS & FEED -->
+            <div id="view-transactions" class="app-view hidden space-y-4">
+                <div class="pt-2 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold tracking-tight text-white">Riwayat Transaksi</h2>
+                        <p class="text-xs text-slate-400">Catatan arus keluar & masuk</p>
+                    </div>
+                    <button onclick="openTransactionModal()" class="px-3.5 py-1.5 rounded-2xl glass-panel border-liquid-green/40 text-liquid-green text-xs font-bold flex items-center space-x-1">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                        <span>Catat Baru</span>
+                    </button>
+                </div>
+
+                <div class="space-y-2.5">
+                    <div class="relative">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-3 text-slate-400"></i>
+                        <input type="text" id="tx-search" onkeyup="filterTransactions()" placeholder="Cari nama atau kategori..." class="w-full pl-10 pr-4 py-2.5 rounded-2xl glass-panel text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-liquid-blue">
+                    </div>
+                    <div class="flex space-x-2 overflow-x-auto no-scrollbar pb-1 text-xs">
+                        <button onclick="setTxFilter('type', 'all')" class="tx-type-btn px-3.5 py-1.5 rounded-xl glass-panel border-liquid-blue text-liquid-blue font-semibold" data-value="all">Semua</button>
+                        <button onclick="setTxFilter('type', 'income')" class="tx-type-btn px-3.5 py-1.5 rounded-xl glass-panel text-slate-400 font-medium" data-value="income">Pemasukan</button>
+                        <button onclick="setTxFilter('type', 'expense')" class="tx-type-btn px-3.5 py-1.5 rounded-xl glass-panel text-slate-400 font-medium" data-value="expense">Pengeluaran</button>
+                        <button onclick="setTxFilter('type', 'transfer')" class="tx-type-btn px-3.5 py-1.5 rounded-xl glass-panel text-slate-400 font-medium" data-value="transfer">Transfer</button>
+                    </div>
+                </div>
+
+                <div class="space-y-2" id="full-tx-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- VIEW 4: BUDGETING & LIMITS -->
+            <div id="view-budgeting" class="app-view hidden space-y-5">
+                <div class="flex justify-between items-center pt-2">
+                    <div>
+                        <h2 class="text-xl font-bold tracking-tight text-white">Anggaran & Limit</h2>
+                        <p class="text-xs text-slate-400">Batasi pengeluaran bulanan Anda</p>
+                    </div>
+                    <button onclick="openModal('add-budget')" class="px-3.5 py-1.5 rounded-2xl glass-panel border-liquid-amber/40 text-liquid-amber text-xs font-bold flex items-center space-x-1">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                        <span>Set Budget</span>
+                    </button>
+                </div>
+
+                <div id="budget-alert-box" class="p-4 rounded-3xl bg-liquid-red/10 border border-liquid-red/40 hidden flex items-start space-x-3 backdrop-blur-md">
+                    <i data-lucide="alert-octagon" class="w-5 h-5 text-liquid-red shrink-0 mt-0.5 animate-bounce"></i>
+                    <div class="text-xs">
+                        <h4 class="font-bold text-liquid-red">Peringatan Limit Keuangan!</h4>
+                        <p class="text-slate-300 mt-0.5" id="budget-alert-text">Satu atau lebih kategori telah melampaui batas anggaran.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3" id="budget-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- VIEW 5: ANALYTICS & INSIGHTS -->
+            <div id="view-analytics" class="app-view hidden space-y-5">
+                <div class="pt-2">
+                    <h2 class="text-xl font-bold tracking-tight text-white">Analisis Liquid Glass</h2>
+                    <p class="text-xs text-slate-400">Visualisasi tren & statistik keuangan</p>
+                </div>
+
+                <div class="p-4 rounded-3xl glass-panel space-y-3">
+                    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-liquid-magenta"></i>
+                        <span>Kategori Pengeluaran</span>
+                    </h3>
+                    <div class="h-52 w-full relative flex items-center justify-center">
+                        <canvas id="expenseCategoryChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-3xl glass-panel space-y-3">
+                    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 text-liquid-blue"></i>
+                        <span>Pemasukan vs Pengeluaran</span>
+                    </h3>
+                    <div class="h-48 w-full">
+                        <canvas id="monthlyTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-3xl glass-panel space-y-3">
+                    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Skor Kesehatan Finansial</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                            <p class="text-[10px] text-slate-400">Rasio Menabung</p>
+                            <p id="savings-ratio-text" class="text-lg font-black text-liquid-green text-glow-green">0%</p>
+                            <p class="text-[9px] text-slate-500">Target > 20%</p>
+                        </div>
+                        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                            <p class="text-[10px] text-slate-400">Rasio Pengeluaran</p>
+                            <p id="expense-ratio-text" class="text-lg font-black text-liquid-amber">0%</p>
+                            <p class="text-[9px] text-slate-500">Batas aman < 80%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Dock Navigasi Bawah -->
+        <div class="h-16 glass-dock px-3 flex justify-around items-center z-40 shrink-0 w-full max-w-2xl mx-auto">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex flex-col items-center justify-center space-y-1 text-liquid-blue">
+                <i data-lucide="layout-grid" class="w-5 h-5"></i>
+                <span class="text-[10px] font-semibold">Beranda</span>
+            </button>
+            <button onclick="switchTab('wallets')" id="nav-wallets" class="nav-item flex flex-col items-center justify-center space-y-1 text-slate-400 hover:text-slate-200">
+                <i data-lucide="wallet" class="w-5 h-5"></i>
+                <span class="text-[10px] font-semibold">Dompet</span>
+            </button>
+            <button onclick="switchTab('transactions')" id="nav-transactions" class="nav-item flex flex-col items-center justify-center space-y-1 text-slate-400 hover:text-slate-200">
+                <i data-lucide="arrow-left-right" class="w-5 h-5"></i>
+                <span class="text-[10px] font-semibold">Transaksi</span>
+            </button>
+            <button onclick="switchTab('budgeting')" id="nav-budgeting" class="nav-item flex flex-col items-center justify-center space-y-1 text-slate-400 hover:text-slate-200">
+                <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                <span class="text-[10px] font-semibold">Budget</span>
+            </button>
+            <button onclick="switchTab('analytics')" id="nav-analytics" class="nav-item flex flex-col items-center justify-center space-y-1 text-slate-400 hover:text-slate-200">
+                <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                <span class="text-[10px] font-semibold">Analitik</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Dialog Popups -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity duration-300">
+        <div id="modal-content" class="w-full max-w-md glass-panel border-white/20 rounded-t-[36px] sm:rounded-[36px] p-5 space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar shadow-2xl">
+            <div class="flex justify-between items-center pb-2 border-b border-white/10">
+                <h3 id="modal-title" class="font-bold text-base text-white">Judul Modal</h3>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full glass-panel flex items-center justify-center text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Script Kunci Gesture Anti Pull-to-Refresh Android WebView -->
+    <script>
+        (function() {
+            let startY = 0;
+
+            document.addEventListener('touchstart', function(e) {
+                if (e.touches.length === 1) {
+                    startY = e.touches[0].clientY;
+                }
+            }, { passive: false });
+
+            document.addEventListener('touchmove', function(e) {
+                const scrollContainer = document.getElementById('app-content');
+                if (!scrollContainer) return;
+
+                const currentY = e.touches[0].clientY;
+                const isPullingDown = currentY > startY;
+
+                // Mencegah Pull-to-Refresh saat scroll berada di paling atas dan pengguna mengusap ke bawah
+                if (scrollContainer.scrollTop <= 0 && isPullingDown) {
+                    if (e.cancelable) {
+                        e.preventDefault();
+                    }
+                }
+            }, { passive: false });
+        })();
+    </script>
+
+    <script>
+        const INITIAL_DATA = {
+            profile: {
+                name: 'Alex Morgan',
+                title: 'Liquid Wallet',
+                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
+            },
+            wallets: [
+                { id: 'w1', name: 'BCA Utama', type: 'Bank BCA', balance: 18500000, color: 'from-cyan-500/30 to-blue-600/40', icon: 'credit-card', glow: 'border-cyan-400/40' },
+                { id: 'w2', name: 'Mandiri Savings', type: 'Bank Mandiri', balance: 12000000, color: 'from-emerald-500/30 to-teal-600/40', icon: 'building-2', glow: 'border-emerald-400/40' },
+                { id: 'w3', name: 'Gopay Wallet', type: 'Digital E-Wallet', balance: 1450000, color: 'from-purple-500/30 to-pink-600/40', icon: 'smartphone', glow: 'border-purple-400/40' },
+                { id: 'w4', name: 'Cash / Kas', type: 'Fisik Tunai', balance: 750000, color: 'from-amber-500/30 to-orange-600/40', icon: 'coins', glow: 'border-amber-400/40' }
+            ],
+            categories: [
+                { id: 'cat1', name: 'Makanan & Minuman', icon: 'utensils' },
+                { id: 'cat2', name: 'Transportasi', icon: 'car' },
+                { id: 'cat3', name: 'Belanja & Style', icon: 'shopping-bag' },
+                { id: 'cat4', name: 'Tagihan & Utilitas', icon: 'receipt' },
+                { id: 'cat5', name: 'Gaji & Bonus', icon: 'briefcase' },
+                { id: 'cat6', name: 'Hiburan', icon: 'film' },
+                { id: 'cat7', name: 'Investasi', icon: 'trending-up' }
+            ],
+            transactions: [
+                { id: 't1', title: 'Gaji Bulanan', amount: 20000000, type: 'income', walletId: 'w1', category: 'Gaji & Bonus', date: '2026-10-01' },
+                { id: 't2', title: 'Restoran & Cafe', amount: 1250000, type: 'expense', walletId: 'w3', category: 'Makanan & Minuman', date: '2026-10-03' },
+                { id: 't3', title: 'Bensin & E-Toll', amount: 450000, type: 'expense', walletId: 'w1', category: 'Transportasi', date: '2026-10-05' },
+                { id: 't4', title: 'Belanja Pakaian', amount: 1800000, type: 'expense', walletId: 'w1', category: 'Belanja & Style', date: '2026-10-07' },
+                { id: 't5', title: 'Bonus Project', amount: 3500000, type: 'income', walletId: 'w2', category: 'Gaji & Bonus', date: '2026-10-09' }
+            ],
+            budgets: [
+                { id: 'b1', category: 'Makanan & Minuman', limit: 3000000 },
+                { id: 'b2', category: 'Belanja & Style', limit: 2000000 },
+                { id: 'b3', category: 'Transportasi', limit: 1000000 }
+            ],
+            goals: [
+                { id: 'g1', title: 'MacBook M3 Pro', target: 28000000, current: 18500000, icon: 'laptop' },
+                { id: 'g2', title: 'Liburan Japan', target: 20000000, current: 8000000, icon: 'plane' }
+            ],
+            bills: [
+                { id: 'bill1', name: 'Wi-Fi Fiber 100Mbps', amount: 450000, dueDate: '15 Okt 2026', paid: false },
+                { id: 'bill2', name: 'iCloud 2TB Storage', amount: 149000, dueDate: '18 Okt 2026', paid: false },
+                { id: 'bill3', name: 'Listrik PLN Smart', amount: 650000, dueDate: '22 Okt 2026', paid: true }
+            ]
+        };
+
+        let appData = loadData();
+        let currentTxFilter = { type: 'all' };
+        let expenseChart = null;
+        let trendChart = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            updateClock();
+            setInterval(updateClock, 1000);
+            renderAllViews();
+        });
+
+        function loadData() {
+            const stored = localStorage.getItem('PAYVAULT_LIQUID_STORAGE');
+            if (stored) {
+                try { return JSON.parse(stored); } catch (e) { console.error(e); }
+            }
+            localStorage.setItem('PAYVAULT_LIQUID_STORAGE', JSON.stringify(INITIAL_DATA));
+            return INITIAL_DATA;
+        }
+
+        function saveData() {
+            localStorage.setItem('PAYVAULT_LIQUID_STORAGE', JSON.stringify(appData));
+            renderAllViews();
+        }
+
+        function formatIDR(amount) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const timeEl = document.getElementById('current-time');
+            if (timeEl) timeEl.innerText = `${h}:${m}`;
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.app-view').forEach(view => view.classList.add('hidden'));
+            const targetView = document.getElementById(`view-${tabName}`);
+            if (targetView) targetView.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.classList.remove('text-liquid-blue');
+                btn.classList.add('text-slate-400');
+            });
+            
+            const activeNav = document.getElementById(`nav-${tabName}`);
+            if (activeNav) {
+                activeNav.classList.add('text-liquid-blue');
+                activeNav.classList.remove('text-slate-400');
+            }
+
+            if (tabName === 'analytics') {
+                renderCharts();
+            }
+            lucide.createIcons();
+        }
+
+        function renderAllViews() {
+            renderDashboard();
+            renderWalletsView();
+            renderTransactionsView();
+            renderBudgetingView();
+            updateCalculatedRatios();
+            lucide.createIcons();
+        }
+
+        function renderDashboard() {
+            const profile = appData.profile || INITIAL_DATA.profile;
+            const nameEl = document.getElementById('user-name');
+            const titleEl = document.getElementById('user-title');
+            const avatarEl = document.getElementById('user-avatar');
+
+            if (nameEl) nameEl.innerText = profile.name;
+            if (titleEl) titleEl.innerText = profile.title;
+            if (avatarEl) avatarEl.src = profile.avatar;
+
+            const totalBalance = appData.wallets.reduce((acc, w) => acc + w.balance, 0);
+            const totalIncome = appData.transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+            const totalExpense = appData.transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+
+            document.getElementById('dash-total-balance').innerText = formatIDR(totalBalance);
+            document.getElementById('dash-total-income').innerText = formatIDR(totalIncome);
+            document.getElementById('dash-total-expense').innerText = formatIDR(totalExpense);
+
+            const walletScroll = document.getElementById('dash-wallets-scroll');
+            if (walletScroll) {
+                walletScroll.innerHTML = appData.wallets.map(w => `
+                    <div class="min-w-[165px] p-4 rounded-3xl glass-panel bg-gradient-to-br ${w.color} ${w.glow} flex flex-col justify-between h-28 shrink-0">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] text-slate-300 font-semibold tracking-wider uppercase">${w.type}</span>
+                            <i data-lucide="${w.icon || 'credit-card'}" class="w-4 h-4 text-white/80"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-white truncate">${w.name}</p>
+                            <p class="text-xs font-black text-glow-cyan text-cyan-300 mt-0.5">${formatIDR(w.balance)}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const billsContainer = document.getElementById('bills-list');
+            if (billsContainer) {
+                billsContainer.innerHTML = appData.bills.map(b => `
+                    <div class="p-3 rounded-2xl glass-panel flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-xl ${b.paid ? 'bg-liquid-green/20 text-liquid-green' : 'bg-liquid-amber/20 text-liquid-amber'} flex items-center justify-center">
+                                <i data-lucide="${b.paid ? 'check-circle-2' : 'clock'}" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-200">${b.name}</h4>
+                                <p class="text-[10px] text-slate-400">Jatuh Tempo: ${b.dueDate}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-extrabold text-slate-100">${formatIDR(b.amount)}</p>
+                            <button onclick="${b.paid ? `toggleBillStatus('${b.id}')` : `openPayBillModal('${b.id}')`}" class="text-[10px] ${b.paid ? 'text-liquid-green' : 'text-liquid-blue'} font-bold hover:underline">
+                                ${b.paid ? 'Lunas' : 'Bayar'}
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const recent = appData.transactions.slice(-4).reverse();
+            const txListEl = document.getElementById('dash-tx-list');
+            if (txListEl) txListEl.innerHTML = renderTxHTML(recent);
+        }
+
+        function renderWalletsView() {
+            const list = document.getElementById('wallets-full-list');
+            if (list) {
+                list.innerHTML = appData.wallets.map(w => `
+                    <div class="p-4 rounded-3xl glass-panel flex justify-between items-center">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br ${w.color} border border-white/20 flex items-center justify-center text-white shadow-xl">
+                                <i data-lucide="${w.icon || 'wallet'}" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-white">${w.name}</h3>
+                                <p class="text-[10px] text-slate-400">${w.type}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-black text-cyan-300 text-glow-cyan">${formatIDR(w.balance)}</p>
+                            <button onclick="deleteWallet('${w.id}')" class="text-[10px] text-liquid-red hover:underline mt-0.5">Hapus</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const goalsList = document.getElementById('goals-list');
+            if (goalsList) {
+                goalsList.innerHTML = appData.goals.map(g => {
+                    const percent = Math.min(100, Math.round((g.current / g.target) * 100));
+                    return `
+                        <div class="p-4 rounded-3xl glass-panel space-y-2.5">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-9 h-9 rounded-2xl bg-liquid-purple/20 text-liquid-purple flex items-center justify-center border border-liquid-purple/30">
+                                        <i data-lucide="${g.icon || 'target'}" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-xs font-bold text-white">${g.title}</h4>
+                                        <p class="text-[10px] text-slate-400">${formatIDR(g.current)} / ${formatIDR(g.target)}</p>
+                                    </div>
+                                </div>
+                                <button onclick="openTopUpGoalModal('${g.id}')" class="px-3 py-1 rounded-xl glass-panel border-liquid-purple/40 text-liquid-purple text-[10px] font-bold">
+                                    + Top Up
+                                </button>
+                            </div>
+                            <div class="w-full bg-white/10 h-2.5 rounded-full overflow-hidden p-0.5">
+                                <div class="liquid-progress-fill h-full rounded-full transition-all duration-700" style="width: ${percent}%"></div>
+                            </div>
+                            <div class="flex justify-between text-[10px] text-slate-400">
+                                <span>Terkumpul: ${percent}%</span>
+                                <span>Sisa: ${formatIDR(Math.max(0, g.target - g.current))}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function renderTransactionsView() {
+            let filtered = [...appData.transactions].reverse();
+            if (currentTxFilter.type !== 'all') {
+                filtered = filtered.filter(t => t.type === currentTxFilter.type);
+            }
+            const query = document.getElementById('tx-search')?.value.toLowerCase();
+            if (query) {
+                filtered = filtered.filter(t => t.title.toLowerCase().includes(query) || t.category.toLowerCase().includes(query));
+            }
+
+            const el = document.getElementById('full-tx-list');
+            if (el) el.innerHTML = renderTxHTML(filtered);
+        }
+
+        function renderTxHTML(txArray) {
+            if (txArray.length === 0) {
+                return `<div class="p-6 text-center text-xs text-slate-500">Belum ada transaksi.</div>`;
+            }
+
+            return txArray.map(t => {
+                const isIncome = t.type === 'income';
+                const isTransfer = t.type === 'transfer';
+                let iconBg = isIncome ? 'bg-liquid-green/20 text-liquid-green border-liquid-green/40' : (isTransfer ? 'bg-liquid-blue/20 text-liquid-blue border-liquid-blue/40' : 'bg-liquid-magenta/20 text-liquid-magenta border-liquid-magenta/40');
+                let iconName = isIncome ? 'arrow-down-left' : (isTransfer ? 'repeat' : 'arrow-up-right');
+
+                return `
+                    <div class="p-3.5 rounded-2xl glass-panel flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-2xl border ${iconBg} flex items-center justify-center">
+                                <i data-lucide="${iconName}" class="w-4.5 h-4.5"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-white">${t.title}</h4>
+                                <p class="text-[10px] text-slate-400">${t.category} • ${t.date}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-extrabold ${isIncome ? 'text-liquid-green text-glow-green' : 'text-slate-100'}">
+                                ${isIncome ? '+' : (isTransfer ? '' : '-')}${formatIDR(t.amount)}
+                            </p>
+                            <button onclick="deleteTx('${t.id}')" class="text-[9px] text-slate-500 hover:text-liquid-red">Hapus</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function setTxFilter(key, value) {
+            currentTxFilter[key] = value;
+            document.querySelectorAll('.tx-type-btn').forEach(btn => {
+                if (btn.dataset.value === value) {
+                    btn.className = 'tx-type-btn px-3.5 py-1.5 rounded-xl glass-panel border-liquid-blue text-liquid-blue font-semibold';
+                } else {
+                    btn.className = 'tx-type-btn px-3.5 py-1.5 rounded-xl glass-panel text-slate-400 font-medium';
+                }
+            });
+            renderTransactionsView();
+        }
+
+        function filterTransactions() {
+            renderTransactionsView();
+        }
+
+        function renderBudgetingView() {
+            let hasOver = false;
+            const container = document.getElementById('budget-list');
+
+            if (container) {
+                container.innerHTML = appData.budgets.map(b => {
+                    const spent = appData.transactions
+                        .filter(t => t.type === 'expense' && t.category === b.category)
+                        .reduce((acc, t) => acc + t.amount, 0);
+
+                    const percent = Math.min(100, Math.round((spent / b.limit) * 100));
+                    
+                    let fillGrad = 'bg-gradient-to-r from-cyan-400 to-emerald-400';
+                    if (percent >= 90) { fillGrad = 'bg-gradient-to-r from-orange-500 to-liquid-red'; hasOver = true; }
+                    else if (percent >= 70) { fillGrad = 'bg-gradient-to-r from-amber-400 to-orange-500'; }
+
+                    return `
+                        <div class="p-4 rounded-3xl glass-panel space-y-2.5">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="font-bold text-white">${b.category}</span>
+                                <span class="text-slate-300 font-semibold">${formatIDR(spent)} / ${formatIDR(b.limit)}</span>
+                            </div>
+                            <div class="w-full bg-white/10 h-3 rounded-full overflow-hidden p-0.5">
+                                <div class="${fillGrad} h-full rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+                            </div>
+                            <div class="flex justify-between items-center text-[10px] text-slate-400">
+                                <span>Pemakaian: ${percent}%</span>
+                                <span>${percent >= 100 ? 'Overbudget!' : `Sisa: ${formatIDR(Math.max(0, b.limit - spent))}`}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const alertBox = document.getElementById('budget-alert-box');
+            if (alertBox) {
+                if (hasOver) alertBox.classList.remove('hidden');
+                else alertBox.classList.add('hidden');
+            }
+        }
+
+        function renderCharts() {
+            const expCat = {};
+            appData.transactions.filter(t => t.type === 'expense').forEach(t => {
+                expCat[t.category] = (expCat[t.category] || 0) + t.amount;
+            });
+
+            const labels = Object.keys(expCat);
+            const data = Object.values(expCat);
+
+            const canvasDonut = document.getElementById('expenseCategoryChart');
+            if (canvasDonut) {
+                const ctxDonut = canvasDonut.getContext('2d');
+                if (expenseChart) expenseChart.destroy();
+
+                expenseChart = new Chart(ctxDonut, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels.length ? labels : ['Belum ada data'],
+                        datasets: [{
+                            data: data.length ? data : [1],
+                            backgroundColor: ['#ff007f', '#00d2ff', '#9d4edd', '#00f5d4', '#ffb703', '#64748b'],
+                            borderWidth: 2,
+                            borderColor: 'rgba(255,255,255,0.1)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } }
+                        },
+                        cutout: '72%'
+                    }
+                });
+            }
+
+            const canvasTrend = document.getElementById('monthlyTrendChart');
+            if (canvasTrend) {
+                const ctxTrend = canvasTrend.getContext('2d');
+                if (trendChart) trendChart.destroy();
+
+                trendChart = new Chart(ctxTrend, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Ags', 'Sep', 'Okt'],
+                        datasets: [
+                            { label: 'Pemasukan', data: [15000000, 18000000, 23500000], backgroundColor: '#00f5d4', borderRadius: 8 },
+                            { label: 'Pengeluaran', data: [9000000, 11000000, 3500000], backgroundColor: '#ff007f', borderRadius: 8 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: '#94a3b8', font: { size: 10 } } }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 9 } } },
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateCalculatedRatios() {
+            const totalIncome = appData.transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+            const totalExpense = appData.transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+
+            if (totalIncome > 0) {
+                const savingsRatio = Math.round(((totalIncome - totalExpense) / totalIncome) * 100);
+                const expenseRatio = Math.round((totalExpense / totalIncome) * 100);
+
+                const savingsEl = document.getElementById('savings-ratio-text');
+                const expenseEl = document.getElementById('expense-ratio-text');
+
+                if (savingsEl) savingsEl.innerText = `${Math.max(0, savingsRatio)}%`;
+                if (expenseEl) expenseEl.innerText = `${expenseRatio}%`;
+            }
+        }
+
+        let selectedBase64Avatar = null;
+
+        function openEditProfileModal() {
+            const backdrop = document.getElementById('modal-backdrop');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            backdrop.classList.remove('hidden');
+
+            const profile = appData.profile || INITIAL_DATA.profile;
+
+            title.innerText = "Edit Profil Pengguna";
+            body.innerHTML = `
+                <form onsubmit="handleSaveProfile(event)" class="space-y-4">
+                    <div class="flex flex-col items-center space-y-3">
+                        <div class="relative p-0.5 rounded-full bg-gradient-to-r from-liquid-blue via-liquid-purple to-liquid-magenta">
+                            <img id="edit-avatar-preview" src="${profile.avatar}" class="w-20 h-20 rounded-full object-cover border-2 border-black" alt="Preview Avatar">
+                            <label for="upload-avatar-input" class="absolute bottom-0 right-0 w-7 h-7 bg-liquid-blue text-slate-950 rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition">
+                                <i data-lucide="camera" class="w-4 h-4"></i>
+                            </label>
+                        </div>
+                        <p class="text-[10px] text-slate-400">Klik ikon kamera untuk pilih dari Galeri</p>
+                    </div>
+
+                    <input type="file" id="upload-avatar-input" accept="image/*" onchange="previewGalleryImage(event)" class="hidden">
+
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Nama Lengkap</label>
+                        <input type="text" id="edit-name" value="${profile.name}" required class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue" placeholder="Nama Anda">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Label / Sub-judul Profil</label>
+                        <input type="text" id="edit-title" value="${profile.title}" required class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue" placeholder="Contoh: Liquid Wallet, Personal">
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-gradient-to-r from-[#00d2ff] to-[#9d4edd] text-white font-bold rounded-2xl text-xs shadow-lg mt-2 hover:opacity-90 active:scale-95 transition">
+                        Simpan Perubahan
+                    </button>
+                    <div class="pt-3 border-t border-white/10 text-center">
+                        <button type="button" onclick="confirmResetData()" class="text-xs text-liquid-red font-semibold hover:underline flex items-center justify-center space-x-1 mx-auto">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                            <span>Reset Data ke Kondisi Awal</span>
+                        </button>
+                    </div>
+                </form>
+            `;
+            lucide.createIcons();
+        }
+
+        function previewGalleryImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                if (file.size > 2 * 1024 * 1024) {
+                    alert("Ukuran foto terlalu besar. Silakan pilih foto di bawah 2 MB.");
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const base64Data = e.target.result;
+                    document.getElementById('edit-avatar-preview').src = base64Data;
+                    selectedBase64Avatar = base64Data;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function handleSaveProfile(e) {
+            e.preventDefault();
+            const currentProfile = appData.profile || INITIAL_DATA.profile;
+
+            appData.profile = {
+                name: document.getElementById('edit-name').value,
+                title: document.getElementById('edit-title').value,
+                avatar: selectedBase64Avatar || currentProfile.avatar
+            };
+
+            selectedBase64Avatar = null;
+            saveData();
+            closeModal();
+        }
+
+        function openPayBillModal(billId) {
+            const bill = appData.bills.find(b => b.id === billId);
+            if (!bill) return;
+
+            const backdrop = document.getElementById('modal-backdrop');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            backdrop.classList.remove('hidden');
+
+            title.innerText = `Bayar Tagihan: ${bill.name}`;
+            body.innerHTML = `
+                <form onsubmit="handlePayBill(event, '${bill.id}')" class="space-y-3">
+                    <div class="p-3 glass-panel rounded-2xl flex justify-between items-center text-xs">
+                        <span class="text-slate-400">Total Tagihan:</span>
+                        <span class="font-bold text-white">${formatIDR(bill.amount)}</span>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Pilih Dompet Sumber Pembayaran</label>
+                        <select id="pay-wallet" class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue">
+                            ${appData.wallets.map(w => `<option value="${w.id}" class="bg-slate-900">${w.name} -${formatIDR(w.balance)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-liquid-blue text-slate-950 font-bold rounded-2xl text-xs shadow-lg mt-2 hover:opacity-90 active:scale-95 transition">
+                        Konfirmasi Pembayaran
+                    </button>
+                </form>
+            `;
+            lucide.createIcons();
+        }
+
+        function handlePayBill(e, billId) {
+            e.preventDefault();
+            const walletId = document.getElementById('pay-wallet').value;
+            const wallet = appData.wallets.find(w => w.id === walletId);
+            const bill = appData.bills.find(b => b.id === billId);
+
+            if (!wallet || !bill) return;
+
+            if (wallet.balance < bill.amount) {
+                alert('Saldo dompet tidak mencukupi untuk membayar tagihan ini!');
+                return;
+            }
+
+            wallet.balance -= bill.amount;
+            bill.paid = true;
+
+            const today = new Date().toISOString().split('T')[0];
+            appData.transactions.push({
+                id: 't_' + Date.now(),
+                title: `Tagihan: ${bill.name}`,
+                amount: bill.amount,
+                type: 'expense',
+                walletId: walletId,
+                category: 'Tagihan & Utilitas',
+                date: today
+            });
+
+            saveData();
+            closeModal();
+        }
+
+        function toggleBillStatus(billId) {
+            const bill = appData.bills.find(b => b.id === billId);
+            if (!bill) return;
+
+            if (bill.paid) {
+                const backdrop = document.getElementById('modal-backdrop');
+                const title = document.getElementById('modal-title');
+                const body = document.getElementById('modal-body');
+                backdrop.classList.remove('hidden');
+
+                title.innerText = "Batalkan Pembayaran?";
+                body.innerHTML = `
+                    <div class="space-y-4 text-center">
+                        <div class="w-12 h-12 rounded-full bg-liquid-amber/20 text-liquid-amber border border-liquid-amber/30 mx-auto flex items-center justify-center">
+                            <i data-lucide="rotate-ccw" class="w-6 h-6"></i>
+                        </div>
+                        <div class="space-y-1">
+                            <p class="text-xs text-slate-300">Batalkan status lunas untuk <strong class="text-white">${bill.name}</strong>?</p>
+                            <p class="text-[10px] text-slate-400">Saldo sebesar <strong class="text-liquid-green">${formatIDR(bill.amount)}</strong> akan dikembalikan ke dompet asal.</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 pt-2">
+                            <button onclick="closeModal()" class="py-2.5 rounded-2xl glass-panel text-xs text-slate-300 font-bold hover:bg-white/10">
+                                Batal
+                            </button>
+                            <button onclick="confirmRefundBill('${bill.id}')" class="py-2.5 rounded-2xl bg-liquid-amber text-slate-950 text-xs font-bold shadow-lg hover:opacity-90">
+                                Ya, Batalkan
+                            </button>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+            } else {
+                openPayBillModal(billId);
+            }
+        }
+
+        function confirmRefundBill(billId) {
+            const bill = appData.bills.find(b => b.id === billId);
+            if (!bill) return;
+
+            const txTitle = `Tagihan: ${bill.name}`;
+            const txIndex = appData.transactions.findIndex(t => t.title === txTitle);
+
+            if (txIndex !== -1) {
+                const tx = appData.transactions[txIndex];
+                const wallet = appData.wallets.find(w => w.id === tx.walletId);
+
+                if (wallet) {
+                    wallet.balance += bill.amount;
+                }
+                appData.transactions.splice(txIndex, 1);
+            }
+
+            bill.paid = false;
+            saveData();
+            closeModal();
+        }
+
+        function deleteTx(id) {
+            const tx = appData.transactions.find(t => t.id === id);
+            if (!tx) return;
+
+            const backdrop = document.getElementById('modal-backdrop');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            backdrop.classList.remove('hidden');
+
+            title.innerText = "Hapus Riwayat Transaksi";
+            body.innerHTML = `
+                <div class="space-y-4 text-center">
+                    <div class="w-12 h-12 rounded-full bg-liquid-red/20 text-liquid-red border border-liquid-red/30 mx-auto flex items-center justify-center">
+                        <i data-lucide="trash-2" class="w-6 h-6"></i>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-xs text-slate-300">Hapus riwayat <strong class="text-white">${tx.title}</strong>?</p>
+                        <p class="text-[10px] text-slate-400">Saldo dompet akan disesuaikan kembali secara otomatis.</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 pt-2">
+                        <button onclick="closeModal()" class="py-2.5 rounded-2xl glass-panel text-xs text-slate-300 font-bold hover:bg-white/10">
+                            Batal
+                        </button>
+                        <button onclick="confirmDeleteTx('${tx.id}')" class="py-2.5 rounded-2xl bg-liquid-red text-white text-xs font-bold shadow-lg hover:opacity-90">
+                            Hapus
+                        </button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function confirmDeleteTx(id) {
+            const tx = appData.transactions.find(t => t.id === id);
+            if (!tx) return;
+
+            const wallet = appData.wallets.find(w => w.id === tx.walletId);
+            if (wallet) {
+                if (tx.type === 'expense') {
+                    wallet.balance += tx.amount;
+                } else if (tx.type === 'income') {
+                    wallet.balance -= tx.amount;
+                }
+            }
+
+            if (tx.title.startsWith('Tagihan: ')) {
+                const billName = tx.title.replace('Tagihan: ', '');
+                const bill = appData.bills.find(b => b.name === billName);
+                if (bill) {
+                    bill.paid = false;
+                }
+            }
+
+            appData.transactions = appData.transactions.filter(t => t.id !== id);
+            saveData();
+            closeModal();
+        }
+
+        function deleteWallet(id) {
+            if (appData.wallets.length <= 1) {
+                alert('Minimal harus ada 1 wallet aktif.');
+                return;
+            }
+            appData.wallets = appData.wallets.filter(w => w.id !== id);
+            saveData();
+        }
+
+        function closeModal() {
+            document.getElementById('modal-backdrop').classList.add('hidden');
+        }
+
+        function openModal(type) {
+            const backdrop = document.getElementById('modal-backdrop');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            backdrop.classList.remove('hidden');
+
+            if (type === 'add-wallet') {
+                title.innerText = "Tambah Wallet Liquid";
+                body.innerHTML = `
+                    <form onsubmit="handleAddWallet(event)" class="space-y-3">
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold">Nama Wallet</label>
+                            <input type="text" id="w-name" required placeholder="cth: Bank Jago, Crypto" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold">Tipe Wallet</label>
+                            <input type="text" id="w-type" required placeholder="cth: E-Wallet, Tabungan" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold">Saldo Awal (Rp)</label>
+                            <input type="number" id="w-balance" required placeholder="0" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-liquid-blue text-slate-950 font-bold rounded-2xl text-xs shadow-lg mt-2">Simpan Wallet</button>
+                    </form>
+                `;
+            } else if (type === 'add-goal') {
+                title.innerText = "Tambah Target Impian";
+                body.innerHTML = `
+                    <form onsubmit="handleAddGoal(event)" class="space-y-3">
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold">Nama Target Impian</label>
+                            <input type="text" id="g-title" required placeholder="cth: Mobil Listrik, Rumah" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold">Target Saldo (Rp)</label>
+                            <input type="number" id="g-target" required placeholder="50000000" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold">Saldo Awal (Rp)</label>
+                            <input type="number" id="g-current" value="0" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-liquid-purple text-white font-bold rounded-2xl text-xs shadow-lg mt-2">Simpan Impian</button>
+                    </form>
+                `;
+            } else if (type === 'add-budget') {
+                title.innerText = "Set Batas Anggaran Bulanan";
+                body.innerHTML = `
+                    <form onsubmit="handleAddBudget(event)" class="space-y-3">
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold">Pilih Kategori</label>
+                            <select id="b-category" class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue">
+                                ${appData.categories.map(c => `<option value="${c.name}" class="bg-slate-900">${c.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold">Batas Maksimal Bulanan (Rp)</label>
+                            <input type="number" id="b-limit" required placeholder="2500000" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-liquid-amber text-slate-950 font-bold rounded-2xl text-xs shadow-lg mt-2">Simpan Anggaran</button>
+                    </form>
+                `;
+            }
+            lucide.createIcons();
+        }
+
+        function openTransactionModal(defaultType = 'expense') {
+            const backdrop = document.getElementById('modal-backdrop');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            backdrop.classList.remove('hidden');
+
+            title.innerText = "Catat Transaksi Liquid";
+            body.innerHTML = `
+                <form onsubmit="handleAddTransaction(event)" class="space-y-3">
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Tipe Transaksi</label>
+                        <select id="tx-type" class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue">
+                            <option value="expense" ${defaultType === 'expense' ? 'selected' : ''} class="bg-slate-900">Pengeluaran (Expense)</option>
+                            <option value="income" ${defaultType === 'income' ? 'selected' : ''} class="bg-slate-900">Pemasukan (Income)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Judul Transaksi</label>
+                        <input type="text" id="tx-title" required placeholder="cth: Makan Malam, Gaji" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Jumlah Nominal (Rp)</label>
+                        <input type="number" id="tx-amount" required placeholder="0" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Pilih Wallet</label>
+                        <select id="tx-wallet" class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue">
+                            ${appData.wallets.map(w => `<option value="${w.id}" class="bg-slate-900">${w.name} (${formatIDR(w.balance)})</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Kategori</label>
+                        <select id="tx-category" class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue">
+                            ${appData.categories.map(c => `<option value="${c.name}" class="bg-slate-900">${c.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-liquid-blue text-slate-950 font-bold rounded-2xl text-xs shadow-lg mt-2">Simpan Transaksi</button>
+                </form>
+            `;
+            lucide.createIcons();
+        }
+
+        function openTransferModal() {
+            const backdrop = document.getElementById('modal-backdrop');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            backdrop.classList.remove('hidden');
+
+            title.innerText = "Transfer Antar Wallet";
+            body.innerHTML = `
+                <form onsubmit="handleTransfer(event)" class="space-y-3">
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Dari Dompet</label>
+                        <select id="tr-from" class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue">
+                            ${appData.wallets.map(w => `<option value="${w.id}" class="bg-slate-900">${w.name} -${formatIDR(w.balance)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Tujuan Dompet</label>
+                        <select id="tr-to" class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue">
+                            ${appData.wallets.map(w => `<option value="${w.id}" class="bg-slate-900">${w.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Jumlah Transfer (Rp)</label>
+                        <input type="number" id="tr-amount" required placeholder="0" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-liquid-blue text-slate-950 font-bold rounded-2xl text-xs shadow-lg mt-2">Kirim Transfer</button>
+                </form>
+            `;
+            lucide.createIcons();
+        }
+
+        function openTopUpGoalModal(goalId) {
+            const backdrop = document.getElementById('modal-backdrop');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            backdrop.classList.remove('hidden');
+
+            const goal = appData.goals.find(g => g.id === goalId);
+            if (!goal) return;
+
+            title.innerText = `Top Up: ${goal.title}`;
+            body.innerHTML = `
+                <form onsubmit="handleTopUpGoal(event, '${goalId}')" class="space-y-3">
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Sumber Wallet</label>
+                        <select id="top-wallet" class="w-full p-3 glass-panel rounded-2xl text-xs text-white focus:outline-none focus:border-liquid-blue">
+                            ${appData.wallets.map(w => `<option value="${w.id}" class="bg-slate-900">${w.name} -${formatIDR(w.balance)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 font-bold">Jumlah Top Up (Rp)</label>
+                        <input type="number" id="top-amount" required placeholder="0" class="w-full p-3 glass-panel rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-liquid-blue">
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-liquid-purple text-white font-bold rounded-2xl text-xs shadow-lg mt-2">Top Up Impian</button>
+                </form>
+            `;
+            lucide.createIcons();
+        }
+
+        function handleAddWallet(e) {
+            e.preventDefault();
+            const colors = [
+                'from-cyan-500/30 to-blue-600/40',
+                'from-emerald-500/30 to-teal-600/40',
+                'from-purple-500/30 to-pink-600/40',
+                'from-amber-500/30 to-orange-600/40'
+            ];
+            const glowColors = ['border-cyan-400/40', 'border-emerald-400/40', 'border-purple-400/40', 'border-amber-400/40'];
+            const idx = Math.floor(Math.random() * colors.length);
+
+            const newWallet = {
+                id: 'w_' + Date.now(),
+                name: document.getElementById('w-name').value,
+                type: document.getElementById('w-type').value,
+                balance: parseFloat(document.getElementById('w-balance').value) || 0,
+                color: colors[idx],
+                glow: glowColors[idx],
+                icon: 'credit-card'
+            };
+            appData.wallets.push(newWallet);
+            saveData();
+            closeModal();
+        }
+
+        function handleAddGoal(e) {
+            e.preventDefault();
+            const newGoal = {
+                id: 'g_' + Date.now(),
+                title: document.getElementById('g-title').value,
+                target: parseFloat(document.getElementById('g-target').value) || 0,
+                current: parseFloat(document.getElementById('g-current').value) || 0,
+                icon: 'target'
+            };
+            appData.goals.push(newGoal);
+            saveData();
+            closeModal();
+        }
+
+        function handleAddBudget(e) {
+            e.preventDefault();
+            const category = document.getElementById('b-category').value;
+            const limit = parseFloat(document.getElementById('b-limit').value) || 0;
+
+            const existing = appData.budgets.find(b => b.category === category);
+            if (existing) {
+                existing.limit = limit;
+            } else {
+                appData.budgets.push({ id: 'b_' + Date.now(), category, limit });
+            }
+            saveData();
+            closeModal();
+        }
+
+        function handleAddTransaction(e) {
+            e.preventDefault();
+            const type = document.getElementById('tx-type').value;
+            const title = document.getElementById('tx-title').value;
+            const amount = parseFloat(document.getElementById('tx-amount').value) || 0;
+            const walletId = document.getElementById('tx-wallet').value;
+            const category = document.getElementById('tx-category').value;
+
+            const wallet = appData.wallets.find(w => w.id === walletId);
+            if (!wallet) return;
+
+            if (type === 'expense' && wallet.balance < amount) {
+                alert('Saldo wallet ini tidak mencukupi.');
+                return;
+            }
+
+            if (type === 'income') wallet.balance += amount;
+            else wallet.balance -= amount;
+
+            const today = new Date().toISOString().split('T')[0];
+            appData.transactions.push({ id: 't_' + Date.now(), title, amount, type, walletId, category, date: today });
+
+            saveData();
+            closeModal();
+        }
+
+        function handleTransfer(e) {
+            e.preventDefault();
+            const fromId = document.getElementById('tr-from').value;
+            const toId = document.getElementById('tr-to').value;
+            const amount = parseFloat(document.getElementById('tr-amount').value) || 0;
+
+            if (fromId === toId) {
+                alert('Pilih dua wallet yang berbeda.');
+                return;
+            }
+
+            const fromW = appData.wallets.find(w => w.id === fromId);
+            const toW = appData.wallets.find(w => w.id === toId);
+
+            if (!fromW || !toW) return;
+
+            if (fromW.balance < amount) {
+                alert('Saldo dompet asal tidak cukup.');
+                return;
+            }
+
+            fromW.balance -= amount;
+            toW.balance += amount;
+
+            const today = new Date().toISOString().split('T')[0];
+            appData.transactions.push({
+                id: 't_' + Date.now(),
+                title: `Transfer ${fromW.name} ➔ ${toW.name}`,
+                amount: amount,
+                type: 'transfer',
+                walletId: fromId,
+                category: 'Transfer Antar Wallet',
+                date: today
+            });
+
+            saveData();
+            closeModal();
+        }
+
+        function handleTopUpGoal(e, goalId) {
+            e.preventDefault();
+            const walletId = document.getElementById('top-wallet').value;
+            const amount = parseFloat(document.getElementById('top-amount').value) || 0;
+
+            const wallet = appData.wallets.find(w => w.id === walletId);
+            const goal = appData.goals.find(g => g.id === goalId);
+
+            if (!wallet || !goal) return;
+
+            if (wallet.balance < amount) {
+                alert('Saldo wallet asal tidak cukup.');
+                return;
+            }
+
+            wallet.balance -= amount;
+            goal.current += amount;
+
+            const today = new Date().toISOString().split('T')[0];
+            appData.transactions.push({
+                id: 't_' + Date.now(),
+                title: `Top Up Goal: ${goal.title}`,
+                amount: amount,
+                type: 'expense',
+                walletId: walletId,
+                category: 'Investasi',
+                date: today
+            });
+
+            saveData();
+            closeModal();
+        }
+
+        function confirmResetData() {
+            closeModal();
+            setTimeout(() => {
+                const backdrop = document.getElementById('modal-backdrop');
+                const title = document.getElementById('modal-title');
+                const body = document.getElementById('modal-body');
+                backdrop.classList.remove('hidden');
+
+                title.innerText = "Reset Data Aplikasi";
+                body.innerHTML = `
+                    <div class="space-y-4 text-center">
+                        <div class="w-12 h-12 rounded-full bg-liquid-red/20 text-liquid-red border border-liquid-red/30 mx-auto flex items-center justify-center">
+                            <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                        </div>
+                        <div class="space-y-1">
+                            <p class="text-xs font-bold text-white">Apakah Anda yakin ingin mereset data?</p>
+                            <p class="text-[10px] text-slate-400">Semua riwayat transaksi, saldo dompet, dan perubahan profil akan dikembalikan ke pengaturan awal pabrik.</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 pt-2">
+                            <button onclick="closeModal()" class="py-2.5 rounded-2xl glass-panel text-xs text-slate-300 font-bold hover:bg-white/10">
+                                Batal
+                            </button>
+                            <button onclick="executeResetData()" class="py-2.5 rounded-2xl bg-liquid-red text-white text-xs font-bold shadow-lg hover:opacity-90">
+                                Ya, Reset Sekarang
+                            </button>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+            }, 200);
+        }
+
+        function executeResetData() {
+            localStorage.removeItem('PAYVAULT_LIQUID_STORAGE');
+            appData = JSON.parse(JSON.stringify(INITIAL_DATA));
+            saveData();
+            closeModal();
+        }
+    </script>
+</body>
+</html>
